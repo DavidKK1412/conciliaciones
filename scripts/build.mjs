@@ -34,6 +34,8 @@ for (const [name, code] of Object.entries(libs)) reemplazar(`/*__${name}__*/`, c
 
 mkdirSync(join(root, 'dist'), {recursive: true});
 writeFileSync(join(root, 'dist/Unificar conciliaciones.html'), html);
+// Copia como index.html para servir la herramienta desde un hosting estático (Vercel, etc.)
+writeFileSync(join(root, 'dist/index.html'), html);
 
 // El editor de VBA lee los .bas en ANSI (Windows-1252); los caracteres usados (á, ó, ¿…) están en Latin-1
 if (/[^\u0000-ÿ]/.test(bas)) throw new Error('La macro tiene caracteres fuera de Windows-1252');

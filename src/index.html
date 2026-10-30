@@ -164,6 +164,14 @@ const CONFIG = {
 };
 /* ========================================================== */
 
+if (typeof pdfjsLib === 'undefined' || typeof PDFLib === 'undefined' || typeof JSZip === 'undefined') {
+  // Se abrió src/index.html (la plantilla) en vez del archivo generado por `npm run build`
+  document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+    '<div class="card" style="border-color:var(--bad);background:var(--bad-soft);color:var(--bad)"><b>Esta página no está compilada.</b> ' +
+    'Faltan las librerías de PDF. Usa el archivo generado con <code>npm run build</code> (carpeta <code>dist/</code>).</div>');
+  throw new Error('Plantilla sin compilar: ejecuta npm run build y abre dist/');
+}
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
   new Blob([document.getElementById('pdfworker').textContent], {type: 'text/javascript'}));
 
