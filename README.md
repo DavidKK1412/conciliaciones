@@ -13,6 +13,12 @@ Es **un solo archivo HTML**: se abre con doble clic en Edge o Chrome, funciona s
 
 Descarga la última versión desde [Releases](../../releases), o desde los artefactos de la última ejecución de CI.
 
+### Publicada en la web (Vercel)
+
+El repo trae `vercel.json`: Vercel corre `npm run build` y publica `dist/`, con la herramienta en la raíz (`dist/index.html`). Al importar el proyecto en Vercel no hay que configurar nada más; deja el preset en "Other".
+
+Aunque la página esté en internet, los PDF se procesan en el navegador de quien la usa y no se suben a ningún servidor. Si `src/index.html` se publica o se abre sin compilar, la página muestra el aviso "Esta página no está compilada".
+
 ## Nombres de archivo que reconoce
 
 | Documento | Nombre | Ejemplo |
