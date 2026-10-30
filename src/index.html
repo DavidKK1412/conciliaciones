@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unificar conciliaciones</title>
+<style>
+  :root{
+    --bg:#f5f4f0; --card:#ffffff; --ink:#1f2421; --muted:#6b716c; --line:#e3e1da;
+    --accent:#1d5c4a; --accent-ink:#ffffff; --accent-soft:#e3efe9;
+    --ok:#1f7a4d; --ok-soft:#e2f3e9; --warn:#a15c00; --warn-soft:#fdf1dc;
+    --bad:#b3261e; --bad-soft:#fbe5e3; --info-soft:#eef1f6;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  h1{font-size:22px;margin:0 0 2px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+  .step{display:flex;gap:14px;align-items:flex-start}
+  .num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:600;font-size:13px;margin-top:1px}
+  .step h2{font-size:15px;margin:0 0 4px}
+  .step p{margin:0;color:var(--muted)}
+  .grow{flex:1;min-width:0}
+  button,.btn{font:inherit;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;border-radius:7px;cursor:pointer;white-space:nowrap}
+  button:hover{border-color:#c9c6bc}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.small{padding:4px 10px;font-size:12.5px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  details summary{cursor:pointer;color:var(--accent);font-weight:600;margin-top:8px}
+  pre{background:#1f2421;color:#e8ece9;padding:14px;border-radius:8px;overflow:auto;font:12.5px/1.5 var(--mono);max-height:340px}
+  .drop{margin-top:12px;border:2px dashed #cfccc2;border-radius:10px;padding:22px;text-align:center;color:var(--muted);transition:.15s}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .drop strong{color:var(--ink)}
+  label.inline{display:flex;gap:8px;align-items:center;color:var(--muted)}
+  input[type=text]{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:7px;min-width:360px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+  .chip{padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--info-soft)}
+  .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+  table{border-collapse:collapse;width:100%;min-width:880px;background:#fff}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#faf9f6;font-weight:600}
+  tr:last-child td{border-bottom:none}
+  td.acc{font:600 14px var(--mono)}
+  .doc{font-size:12.5px;color:var(--muted);max-width:170px;word-break:break-word}
+  .doc.ok::before{content:"✓ ";color:var(--ok);font-weight:700}
+  .doc.miss{color:var(--bad);font-weight:600}
+  .doc.dup{color:var(--warn)}
+  .chk{font-size:12.5px}
+  .chk .v{font-family:var(--mono)}
+  .tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:12px;font-weight:600}
+  .tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)} .tag.na{background:var(--info-soft);color:var(--muted)}
+  .note{font-size:12px;color:var(--muted);margin-top:3px}
+  .unk{margin-top:12px;font-size:13px;color:var(--muted)}
+  .unk code{font-family:var(--mono);background:var(--info-soft);padding:1px 5px;border-radius:4px}
+  .progress{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin:8px 0 14px;display:none}
+  .progress>div{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .muted{color:var(--muted)}
+  .hidden{display:none!important}
+  .foot{color:var(--muted);font-size:12.5px;margin-top:20px}
+  @media (max-width:640px){ input[type=text]{min-width:0;width:100%} .step{flex-direction:column} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Unificar conciliaciones</h1>
+      <p class="sub">Formato de conciliación → Libro auxiliar → Extracto, un PDF por cuenta. Todo se procesa en este computador: no se envía nada a internet.</p>
+    </div>
+  </header>
+
+  <!-- PASO 1 -->
+  <div class="card step">
+    <div class="num">1</div>
+    <div class="grow">
+      <h2>Formatos de conciliación en PDF (Excel)</h2>
+      <p>Una macro que guarda cada hoja <code>_XXXX</code> del libro de conciliaciones directo como <code>MM_XXXX.pdf</code>. Reemplaza separar las hojas y guardarlas como PDF una por una.</p>
+      <details>
+        <summary>Ver la macro e instrucciones</summary>
+        <ol class="muted">
+          <li>En Excel, con el libro de conciliaciones abierto: <b>Alt + F11</b> → menú <b>Insertar → Módulo</b>.</li>
+          <li>Pega el código y cierra el editor.</li>
+          <li><b>Alt + F8</b> → <b>ExportarConciliacionesPDF</b> → Ejecutar. Te pide el mes y la carpeta donde guardar.</li>
+        </ol>
+        <div class="row" style="margin-bottom:8px"><button class="small" id="copyMacro">Copiar macro</button><span id="copyOk" class="muted"></span></div>
+<pre id="macro"><!--__MACRO__--></pre>
+        <p class="note">Usa el área de impresión que ya tiene cada hoja, así que el PDF sale igual que cuando lo guardas a mano. Si una hoja no empieza por "_", no se exporta.</p>
+      </details>
+    </div>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="card step">
+    <div class="num">2</div>
+    <div class="grow">
+      <h2>Elige la carpeta del mes</h2>
+      <p>La que tiene <code>07_0123.pdf</code>, <code>AUX 07_0123.pdf</code> y <code>EXT 07_0123.pdf</code> de cada cuenta. Los Excel y otros archivos se ignoran.</p>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="pickFolder">Elegir carpeta…</button>
+        <button id="pickFiles">Elegir archivos…</button>
+        <input type="file" id="folderInput" webkitdirectory multiple class="hidden">
+        <input type="file" id="filesInput" multiple accept=".pdf,application/pdf" class="hidden">
+      </div>
+      <div class="drop" id="drop"><strong>…o arrastra aquí los PDF</strong><br>puedes soltarlos todos juntos</div>
+    </div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="card hidden" id="results">
+    <div class="step">
+      <div class="num">3</div>
+      <div class="grow">
+        <h2>Revisa y guarda</h2>
+        <p>Cada fila es una cuenta. Abre con <b>Ver</b> los que quieras revisar; las alertas son para mirar con lupa.</p>
+      </div>
+    </div>
+    <div class="progress" id="progress"><div></div></div>
+    <div class="chips" id="chips" style="margin-top:14px"></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Cuenta</th><th>Formato</th><th>Auxiliar</th><th>Extracto</th>
+          <th>Saldo libros = auxiliar</th><th>Saldo extracto = extracto</th><th>Estado</th><th></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="unk" id="unknown"></div>
+
+    <div class="row" style="margin-top:18px;justify-content:space-between">
+      <label class="inline">Nombre del archivo final
+        <input type="text" id="pattern" value="{MES}_{CUENTA} CONCILIACION UNIFICADA">
+      </label>
+      <div class="row">
+        <button id="saveFolder" class="primary" disabled>Guardar en una carpeta…</button>
+        <button id="saveZip" disabled>Descargar ZIP</button>
+      </div>
+    </div>
+    <p class="note">Usa {MES} y {CUENTA}. Solo se guardan las cuentas que tienen los 3 documentos.</p>
+  </div>
+
+  <p class="foot">Orden de unión: formato de conciliación, libro auxiliar, extracto. La cuenta se identifica por los últimos 4 dígitos del nombre del archivo; el revisado de saldos es una ayuda y no reemplaza la revisión.</p>
+</div>
+
+<script>/*__PDFLIB__*/</script>
+<script>/*__PDFJS__*/</script>
+<script>/*__JSZIP__*/</script>
+<script id="pdfworker" type="text/plain">/*__PDFWORKER__*/</script>
+<script>
+/* ===================== CONFIGURACIÓN =====================
+   Si los formatos usan otros textos para los saldos, se agregan aquí. */
+const CONFIG = {
+  // Texto del formato junto al saldo según extracto
+  etiquetaSaldoExtracto: /saldo\s*(seg[uú]n\s*)?(el\s*)?(extracto|banco)|valor\s*(seg[uú]n\s*)?extracto/i,
+  // Texto del formato junto al saldo según libros / auxiliar
+  etiquetaSaldoLibros: /saldo\s*(seg[uú]n\s*)?(los\s*)?(libros?|contabilidad|auxiliar|contable)|valor\s*(seg[uú]n\s*)?(libros?|auxiliar|contabilidad)/i,
+  orden: ['conc', 'aux', 'ext'],
+};
+/* ========================================================== */
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+  new Blob([document.getElementById('pdfworker').textContent], {type: 'text/javascript'}));
+
+const NOMBRES = {conc: 'Formato', aux: 'Auxiliar', ext: 'Extracto'};
+let cuentas = new Map();   // key "MM_XXXX" -> {mes, cuenta, conc:[], aux:[], ext:[], ...}
+let desconocidos = [];
+let ignorados = 0;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- clasificación por nombre ---------- */
+function clasificar(nombre) {
+  if (!/\.pdf$/i.test(nombre)) return {ignorar: true};
+  const base = nombre.replace(/\.pdf$/i, '').trim();
+  let m = base.match(/^(AUX|EXT)[\s._-]*(\d{1,2})[\s._-]+(\d{3,})(\s*\(\d+\))?$/i);
+  if (m) return {tipo: m[1].toUpperCase() === 'AUX' ? 'aux' : 'ext', mes: m[2].padStart(2, '0'), cuenta: m[3].slice(-4)};
+  m = base.match(/^(\d{1,2})[\s._-]+(\d{3,})(\s*\(\d+\))?$/);
+  if (m) return {tipo: 'conc', mes: m[1].padStart(2, '0'), cuenta: m[2].slice(-4)};
+  return null;
+}
+
+function cargarArchivos(lista) {
+  cuentas = new Map(); desconocidos = []; ignorados = 0;
+  for (const f of lista) {
+    const c = clasificar(f.name);
+    if (!c) { desconocidos.push(f.name); continue; }
+    if (c.ignorar) { ignorados++; continue; }
+    const key = c.mes + '_' + c.cuenta;
+    if (!cuentas.has(key)) cuentas.set(key, {key, mes: c.mes, cuenta: c.cuenta, conc: [], aux: [], ext: []});
+    cuentas.get(key)[c.tipo].push(f);
+  }
+  for (const r of cuentas.values()) for (const t of CONFIG.orden) r[t].sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
+  if (!cuentas.size && !desconocidos.length) { alert('No encontré PDF en lo que elegiste.'); return; }
+  $('results').classList.remove('hidden');
+  procesarTodo();
+}
+
+/* ---------- montos ---------- */
+// Convierte "1.582.201,32", "1,582,201.32", "$ 1582201.32", "(1.000,00)" a centavos (entero)
+function aCentavos(txt) {
+  let s = txt.replace(/[$\s]/g, '');
+  let neg = /^\(.*\)$/.test(s) || /^-/.test(s) || /-$/.test(s);
+  s = s.replace(/[()\-]/g, '');
+  const ultimo = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+  let entero = s, dec = '00';
+  if (ultimo >= 0 && /^\d{2}$/.test(s.slice(ultimo + 1))) { entero = s.slice(0, ultimo); dec = s.slice(ultimo + 1); }
+  entero = entero.replace(/[.,]/g, '');
+  if (!/^\d+$/.test(entero)) return null;
+  const v = parseInt(entero, 10) * 100 + parseInt(dec, 10);
+  return neg ? -v : v;
+}
+const RE_MONTO = /\(?-?\$?\s?\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?\)?-?|\(?-?\$?\s?\d+[.,]\d{2}\)?-?/g;
+function montos(texto) {
+  const out = [];
+  for (const m of texto.matchAll(RE_MONTO)) { const v = aCentavos(m[0]); if (v !== null) out.push(v); }
+  return out;
+}
+const fmt = c => (c < 0 ? '-' : '') + '$' + (Math.abs(c) / 100).toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+/* ---------- lectura de PDF ---------- */
+async function abrirPdfjs(bytes, nombre) {
+  let pwd;
+  for (let intento = 0; intento < 3; intento++) {
+    try { return await pdfjsLib.getDocument({data: bytes.slice(), password: pwd, isEvalSupported: false}).promise; }
+    catch (e) {
+      if (e && e.name === 'PasswordException') {
+        pwd = prompt(`"${nombre}" tiene contraseña. Escríbela para poder unirlo (Cancelar para omitir):`);
+        if (pwd === null) throw new Error('Protegido con contraseña');
+      } else throw e;
+    }
+  }
+  throw new Error('Contraseña incorrecta');
+}
+
+// Agrupa el texto por renglones para poder ubicar "etiqueta → valor"
+async function leerTexto(pdf) {
+  const lineas = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    const filas = new Map();
+    for (const it of tc.items) {
+      if (!it.str || !it.str.trim()) continue;
+      const y = Math.round(it.transform[5] / 3);
+      if (!filas.has(y)) filas.set(y, []);
+      filas.get(y).push({x: it.transform[4], s: it.str});
+    }
+    [...filas.entries()].sort((a, b) => b[0] - a[0])
+      .forEach(([, its]) => lineas.push(its.sort((a, b) => a.x - b.x).map(i => i.s).join(' ').replace(/\s+/g, ' ')));
+  }
+  return lineas;
+}
+
+function buscarSaldo(lineas, re) {
+  for (let i = 0; i < lineas.length; i++) {
+    const m = lineas[i].match(re);
+    if (!m) continue;
+    const despues = lineas[i].slice(m.index + m[0].length);
+    let ms = montos(despues);
+    if (!ms.length && lineas[i + 1]) ms = montos(lineas[i + 1]);
+    if (ms.length) return ms[ms.length - 1];
+  }
+  return null;
+}
+
+/* ---------- unión ---------- */
+async function paginasComoImagen(pdf, destino) {
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const vp1 = page.getViewport({scale: 1});
+    const vp = page.getViewport({scale: 2});
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
+    const jpg = await new Promise(r => canvas.toBlob(b => b.arrayBuffer().then(r), 'image/jpeg', 0.9));
+    const img = await destino.embedJpg(jpg);
+    destino.addPage([vp1.width, vp1.height]).drawImage(img, {x: 0, y: 0, width: vp1.width, height: vp1.height});
+  }
+}
+
+async function procesarCuenta(r) {
+  r.notas = []; r.estado = 'ok';
+  const faltan = CONFIG.orden.filter(t => !r[t].length);
+  if (faltan.length) { r.estado = 'incompleta'; r.notas.push('Falta: ' + faltan.map(t => NOMBRES[t].toLowerCase()).join(', ')); }
+  for (const t of CONFIG.orden) if (r[t].length > 1) r.notas.push(`${r[t].length} archivos de ${NOMBRES[t].toLowerCase()}; uso "${r[t][0].name}"`);
+
+  const textos = {};
+  const salida = faltan.length ? null : await PDFLib.PDFDocument.create();
+  for (const t of CONFIG.orden) {
+    const f = r[t][0]; if (!f) continue;
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    let pdf;
+    try { pdf = await abrirPdfjs(bytes, f.name); textos[t] = await leerTexto(pdf); }
+    catch (e) { r.estado = 'error'; r.notas.push(`${NOMBRES[t]}: no se pudo abrir (${e.message || e})`); continue; }
+    if (!salida) continue;
+    try {
+      const src = await PDFLib.PDFDocument.load(bytes);
+      const pages = await salida.copyPages(src, src.getPageIndices());
+      pages.forEach(p => salida.addPage(p));
+    } catch (e) {
+      // PDF protegido (típico en extractos): se agregan las páginas como imagen
+      await paginasComoImagen(pdf, salida);
+      r.notas.push(`${NOMBRES[t]} estaba protegido: se agregó como imagen`);
+    }
+  }
+
+  // Revisión de saldos
+  r.chkLibros = {tag: 'na', txt: '—'}; r.chkExt = {tag: 'na', txt: '—'};
+  if (textos.conc) {
+    const vacio = textos.conc.join('').trim() === '';
+    const sl = buscarSaldo(textos.conc, CONFIG.etiquetaSaldoLibros);
+    const se = buscarSaldo(textos.conc, CONFIG.etiquetaSaldoExtracto);
+    r.chkLibros = comparar(sl, textos.aux, 'auxiliar', vacio);
+    r.chkExt = comparar(se, textos.ext, 'extracto', vacio);
+    if ([r.chkLibros, r.chkExt].some(c => c.tag === 'bad') && r.estado === 'ok') r.estado = 'revisar';
+  }
+
+  if (salida && r.estado !== 'error') { r.pdf = await salida.save(); r.paginas = salida.getPageCount(); }
+}
+
+function comparar(valor, lineasDoc, nombreDoc, formatoSinTexto) {
+  if (formatoSinTexto) return {tag: 'na', txt: 'El formato no tiene texto (¿escaneado?)'};
+  if (valor === null) return {tag: 'na', txt: 'No ubiqué el saldo en el formato'};
+  if (!lineasDoc) return {tag: 'na', txt: fmt(valor), v: true};
+  if (lineasDoc.join('').trim() === '') return {tag: 'warn', txt: fmt(valor) + ` · el ${nombreDoc} no tiene texto, revisar a mano`, v: true};
+  const encontrado = montos(lineasDoc.join('\n')).some(m => Math.abs(m) === Math.abs(valor));
+  return encontrado
+    ? {tag: 'ok', txt: fmt(valor), v: true}
+    : {tag: 'bad', txt: fmt(valor) + ` · no aparece en el ${nombreDoc}`, v: true};
+}
+
+/* ---------- pintar ---------- */
+function celdaDoc(r, t) {
+  const fs = r[t];
+  if (!fs.length) return '<div class="doc miss">Falta</div>';
+  return `<div class="doc ${fs.length > 1 ? 'dup' : 'ok'}" title="${esc(fs.map(f => f.name).join('\n'))}">${esc(fs[0].name)}${fs.length > 1 ? ` (+${fs.length - 1})` : ''}</div>`;
+}
+function celdaChk(c) {
+  if (!c) return '<span class="muted">…</span>';
+  const etiqueta = {ok: 'Coincide', bad: 'Diferente', warn: 'Revisar', na: ''}[c.tag];
+  return `<div class="chk">${etiqueta ? `<span class="tag ${c.tag}">${etiqueta}</span> ` : ''}<span class="${c.v ? 'v' : 'muted'}">${esc(c.txt)}</span></div>`;
+}
+const ESTADOS = {ok: ['ok', 'Lista'], revisar: ['warn', 'Revisar saldos'], incompleta: ['bad', 'Incompleta'], error: ['bad', 'Error'], pendiente: ['na', 'Procesando…']};
+
+function pintar() {
+  const filas = [...cuentas.values()].sort((a, b) => a.key.localeCompare(b.key));
+  $('tbody').innerHTML = filas.map(r => {
+    const [cls, txt] = ESTADOS[r.estado || 'pendiente'];
+    return `<tr>
+      <td class="acc">${esc(r.cuenta)}<div class="note">mes ${esc(r.mes)}</div></td>
+      <td>${celdaDoc(r, 'conc')}</td><td>${celdaDoc(r, 'aux')}</td><td>${celdaDoc(r, 'ext')}</td>
+      <td>${celdaChk(r.chkLibros)}</td><td>${celdaChk(r.chkExt)}</td>
+      <td><span class="tag ${cls}">${txt}</span>${(r.notas || []).map(n => `<div class="note">${esc(n)}</div>`).join('')}</td>
+      <td>${r.pdf ? `<div class="row" style="gap:6px;flex-wrap:nowrap"><button class="small" data-ver="${r.key}">Ver</button><button class="small" data-bajar="${r.key}">Bajar</button></div><div class="note">${r.paginas} págs.</div>` : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const cuenta = e => filas.filter(r => r.estado === e).length;
+  const listas = filas.filter(r => r.pdf).length;
+  $('chips').innerHTML =
+    `<span class="chip">${filas.length} cuentas</span>` +
+    (cuenta('ok') ? `<span class="chip ok">${cuenta('ok')} listas</span>` : '') +
+    (cuenta('revisar') ? `<span class="chip warn">${cuenta('revisar')} con saldos por revisar</span>` : '') +
+    (cuenta('incompleta') ? `<span class="chip bad">${cuenta('incompleta')} incompletas</span>` : '') +
+    (cuenta('error') ? `<span class="chip bad">${cuenta('error')} con error</span>` : '');
+
+  $('unknown').innerHTML = (desconocidos.length
+    ? `<b>No reconocí ${desconocidos.length} PDF</b> (el nombre no sigue el formato <code>MM_XXXX</code>, <code>AUX MM_XXXX</code> o <code>EXT MM_XXXX</code>): ${desconocidos.map(n => `<code>${esc(n)}</code>`).join(' ')}`
+    : '') + (ignorados ? `<div class="note">${ignorados} archivos que no son PDF se ignoraron (Excel, etc.).</div>` : '');
+
+  $('saveFolder').disabled = $('saveZip').disabled = !listas;
+}
+
+async function procesarTodo() {
+  const filas = [...cuentas.values()].sort((a, b) => a.key.localeCompare(b.key));
+  filas.forEach(r => { r.estado = 'pendiente'; r.pdf = null; r.chkLibros = r.chkExt = null; r.notas = []; });
+  pintar();
+  const bar = $('progress'); bar.style.display = 'block';
+  for (let i = 0; i < filas.length; i++) {
+    try { await procesarCuenta(filas[i]); }
+    catch (e) { filas[i].estado = 'error'; filas[i].notas.push(String(e.message || e)); }
+    bar.firstElementChild.style.width = ((i + 1) / filas.length * 100) + '%';
+    pintar();
+  }
+  setTimeout(() => bar.style.display = 'none', 600);
+}
+
+/* ---------- guardar ---------- */
+function nombreSalida(r) {
+  const n = ($('pattern').value.trim() || '{MES}_{CUENTA}').replace(/\{MES\}/gi, r.mes).replace(/\{CUENTA\}/gi, r.cuenta);
+  return n.replace(/[\\/:*?"<>|]/g, '-') + '.pdf';
+}
+function descargar(blob, nombre) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const pdfBlob = r => new Blob([r.pdf], {type: 'application/pdf'});
+const listas = () => [...cuentas.values()].filter(r => r.pdf).sort((a, b) => a.key.localeCompare(b.key));
+
+$('tbody').addEventListener('click', e => {
+  const ver = e.target.dataset.ver, bajar = e.target.dataset.bajar;
+  if (ver) window.open(URL.createObjectURL(pdfBlob(cuentas.get(ver))), '_blank');
+  if (bajar) { const r = cuentas.get(bajar); descargar(pdfBlob(r), nombreSalida(r)); }
+});
+
+$('saveZip').onclick = async () => {
+  const zip = new JSZip();
+  listas().forEach(r => zip.file(nombreSalida(r), r.pdf));
+  const mes = listas()[0]?.mes || '';
+  descargar(await zip.generateAsync({type: 'blob'}), `conciliaciones_unificadas_${mes}.zip`);
+};
+
+$('saveFolder').onclick = async () => {
+  if (!window.showDirectoryPicker) { alert('Este navegador no permite guardar en carpeta. Usa "Descargar ZIP" (o abre esta página en Edge o Chrome).'); return; }
+  let dir;
+  try { dir = await window.showDirectoryPicker({mode: 'readwrite'}); } catch { return; }
+  let n = 0;
+  for (const r of listas()) {
+    const fh = await dir.getFileHandle(nombreSalida(r), {create: true});
+    const w = await fh.createWritable(); await w.write(r.pdf); await w.close(); n++;
+  }
+  alert(`Listo: ${n} PDF guardados en "${dir.name}".`);
+};
+
+/* ---------- entrada de archivos ---------- */
+$('pickFolder').onclick = () => $('folderInput').click();
+$('pickFiles').onclick = () => $('filesInput').click();
+$('folderInput').onchange = e => { cargarArchivos([...e.target.files]); e.target.value = ''; };
+$('filesInput').onchange = e => { cargarArchivos([...e.target.files]); e.target.value = ''; };
+
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', async e => {
+  const items = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (items.some(it => it.isDirectory)) {
+    const files = [];
+    const leer = ent => new Promise(res => {
+      if (ent.isFile) ent.file(f => { files.push(f); res(); }, res);
+      else { const rd = ent.createReader(); const todo = [];
+        const lote = () => rd.readEntries(async es => { if (!es.length) { await Promise.all(todo.map(leer)); res(); } else { todo.push(...es); lote(); } }, res);
+        lote(); }
+    });
+    await Promise.all(items.map(leer));
+    cargarArchivos(files);
+  } else cargarArchivos([...e.dataTransfer.files]);
+});
+
+$('copyMacro').onclick = async () => {
+  const txt = $('macro').textContent;
+  try { await navigator.clipboard.writeText(txt); }
+  catch { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  $('copyOk').textContent = 'Copiada ✓'; setTimeout(() => $('copyOk').textContent = '', 2000);
+};
+</script>
+</body>
+</html>

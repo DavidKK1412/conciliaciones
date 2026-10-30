@@ -1,0 +1,19 @@
+{
+  "name": "unificar-conciliaciones",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Herramienta offline (un solo HTML) para unir formato de conciliación, libro auxiliar y extracto bancario en un PDF por cuenta, y revisar saldos.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node tests/e2e.mjs"
+  },
+  "dependencies": {
+    "jszip": "3.10.1",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "3.11.174"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
